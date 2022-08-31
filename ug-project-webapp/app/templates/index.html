@@ -1,0 +1,48 @@
+<!doctype html>
+
+<html>
+  <head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <!-- The idea is to pop up a modal while the page loads -->
+    <!-- Currently not implemented -->
+    {% if show_modal %}
+    <div class='modal'>
+      <div class='modal-background'></div>
+      <div class='modal-content'>
+        <progress class="progress is-small is-primary" max="100">15%</progress>
+      </div>
+    </div>
+    {% endif %}
+
+    <a class='button is-danger is-medium is-rounded ml-5 mt-5' href='/logout'>Logout</a>
+    <div class="section is-large">
+      <table class="table is-bordered mt-0 is-fullwidth is-hoverable is-large">
+        <tbody>
+          <tr>
+            <td class='has-text-weight-bold is-family-monospace is-size-3'>Led</td>
+            <td class='is-size-4'><div>Currently: {{ data.get('led') }}<div></td>
+            <td><form action="/set/led/1"><button class='button is-success is-rounded is-size-4' type='submit'>ON</button></form></td>
+            <td><form action="/set/led/0"><button class='button is-danger is-rounded is-size-4' type='submit'>OFF</button></form></td>
+          </tr>
+          <tr>
+            <td class='has-text-weight-bold is-family-monospace is-size-3'>Appliance 01</td>
+            <td class='is-size-4'>Currently: {{ data.get('app01') }}</td> 
+            <td><form action="/set/app01/1"><button class='button is-success is-rounded is-size-4' type='submit'>ON</button></form></td>
+            <td><form action="/set/app01/0"><button class='button is-danger is-rounded is-size-4' type='submit'>OFF</button></form></td>
+          </tr>
+          <tr>
+            <td class='has-text-weight-bold is-family-monospace is-size-3'>Appliance 02</td>
+            <td class='is-size-4'>Currently: {{ data.get('app02') }}</td> 
+            <td><form action="/set/app02/1"><button class='button is-success is-rounded is-size-4' type='submit'>ON</button></form></td>
+            <td><form action="/set/app02/0"><button class='button is-danger is-rounded is-size-4' type='submit'>OFF</button></form></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+  </body>
+</html>
