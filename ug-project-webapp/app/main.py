@@ -25,7 +25,7 @@ TOPICS = { 'set': 'project/esp32/appliances', 'status': 'project/esp32/appliance
 # mqtt.subscribe(TOPICS['status'])
 status = {}
 # database
-engine = create_engine('sqlite:///Users.db.sqlite', echo=True, connect_args={'check_same_thread': False})
+engine = create_engine('sqlite:///database.db.sqlite', echo=True, connect_args={'check_same_thread': False})
 base = declarative_base()
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -53,6 +53,14 @@ class User(base):
         # always return False since none of the users are anonymous 
         return False
 
+# appliance table ORM
+class Appliance(base):
+    __tablename__ = 'Appliances'
+    
+    id = Column(Integer, primary_key=True) 
+    name = Column(String, unique=True, nullable=False) 
+    # last_status = Column(String) 
+
 
 # Login Page form
 class LoginForm(FlaskForm):
@@ -61,8 +69,12 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Sign In')
 
 '''
-    Could create a registraion form too!
+    Create a form for adding new appliances!
 '''
+class RegisterAppliance(FlaskForm):
+    name = StringField('appliance name', validators=[DataRequired()])
+    submit = SubmitField('Submit')
+
 
 base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
@@ -74,6 +86,23 @@ else:
     session.add(new_user)
     session.commit()
     print("New user added!")
+
+# pre populate db first time
+if not session.query(Appliance).filter(Appliance.name == 'led').all():
+    session.add(Appliance(name='led'))
+    session.commit()
+else:
+    print("led is already added!")
+if not session.query(Appliance).filter(Appliance.name == 'App01').all():
+    session.add(Appliance(name='App01'))
+    session.commit()
+else:
+    print("App01 is already added!")
+if not session.query(Appliance).filter(Appliance.name == 'App02').all():
+    session.add(Appliance(name='App02'))
+    session.commit()
+else:
+    print("App02 is already added!")
 
 
 @login_manager.user_loader
@@ -125,11 +154,43 @@ def login():
                 # commit the changes 
                 session.commit()
                 login_user(user, remember=True)
+                # ping esp32 to get the status of pins
+                mqtt.publish(TOPICS['status'], payload=json.dumps({}))
+                # wait to get esp32's published data which is sent after esp32 processes above message 
+                # just compensating for the delay
+                time.sleep(0.5) 
                 # redirect to the index page 
                 return redirect('/')
         flash('Wrong username or password!')
     
     return render_template('login.html', form=form)
+
+@app.route('/register_app', methods=['GET', 'POST'])
+@login_required
+def register_app():
+    form = RegisterAppliance()
+    
+    if form.validate_on_submit():
+        new_app = session.query(Appliance).filter(Appliance.name == form.name.data).first()
+        if new_app:
+            flash('An appliance with the same name already exists!')
+            return redirect('/register_app') 
+        new_app = Appliance(name=form.name.data) 
+        session.add(new_app)
+        session.commit()
+        flash(f"{form.name.data} was added!")
+        return redirect('/') 
+    
+    return render_template('register_app.html', form=form)
+
+@app.route('/delete/<app_name>')
+@login_required
+def delete_app(app_name):
+    app = session.query(Appliance).filter(Appliance.name == app_name).first()
+    session.delete(app)
+    session.commit()
+    flash(f"{app_name} was deleted!")
+    return redirect('/')
 
 @app.route('/logout', methods=['GET'])
 @login_required
@@ -149,7 +210,8 @@ def index():
     # do we need below two lines ?????? i dont think so
     if not current_user.is_authenticated:
         return redirect('/login') 
-    return render_template('index.html', data=status)
+     
+    return render_template('index.html', apps=session.query(Appliance).all(), data=status)
 
 # changed the route to '/set/<appliance>/<int:act>'
 # so now we can use the same view function for different appliances
@@ -157,6 +219,7 @@ def index():
 @login_required
 def set_app(appliance, act):
     # publish a message on the set topic 
+    # app = session.query(Appliance)
     mqtt.publish(TOPICS['set'], payload=json.dumps({appliance: act}))
     # wait to get esp32's published data which is sent after esp32 processes above message 
     # just compensating for the delay

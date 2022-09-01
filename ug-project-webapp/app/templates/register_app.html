@@ -1,0 +1,30 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <section class='hero mt-6'>
+      <div class='container'>
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <h1 class='notification is-warning mt-5' role='alert'>
+            {{ messages[0] }}
+          </h1>
+        {% endif %}
+        {% endwith %}
+        <h1 class='title'>Register a new App!</h1>
+        <form action="" method="post">
+          {{ form.hidden_tag() }}
+          <div class='field'>
+            <label>{{ form.name.label(class='label') }}</label>
+            <p>{{ form.name(class='input is-medium', size=32) }}</p>
+          </div> 
+          <p>{{ form.submit(class='button is-link mt-4') }}</p>
+        </form>
+      </div>
+    </section>
+  </body>
+</html>

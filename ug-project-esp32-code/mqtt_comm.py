@@ -34,26 +34,35 @@ STATUS_TOPIC = b'project/esp32/appliances/status'
 
 def handle_message(topic, msg):
     print("message recieved from broker")
+    print(topic, msg)
     if topic == APP_TOPIC:
-        blink_led(topic, msg)
-        
-    print("sending back pin status")
-    client.publish(STATUS_TOPIC, json.dumps(get_pin_status()))
+        handle_op(topic, msg)
+    elif topic == STATUS_TOPIC:
+        if not json.loads(msg.decode()):
+            print("sending back pin status")
+            client.publish(STATUS_TOPIC, json.dumps(get_pin_status()))
     # elif ... other topics and their handling
-
-def blink_led(topic, msg):
+    
+def handle_op(topic, msg):
     print("blinking led")
     m = json.loads(msg.decode())
     # print(type(m), m)
+    for pin in pins:
+        if m.get(pin):
+           pins[pin].value(int(m[pin]))
+    print("sending back pin status")     
+    client.publish(STATUS_TOPIC, json.dumps(get_pin_status()))
+    '''
     if m['led'] == '1':
     #if msg.decode() == '1':
         led.value(1)
     else:
         led.value(0)
-
+    '''
 client.set_callback(handle_message)
 # subscribe to the LED on the broker
 client.subscribe(APP_TOPIC)
+client.subscribe(STATUS_TOPIC)
 
 def get_pin_status():
     d = {}
@@ -66,7 +75,7 @@ while True:
     # print('pinging broker')
     # client.ping()
     # client.publish(STATUS_TOPIC, json.dumps(get_pin_status()))
-    client.check_msg()
+    client.wait_msg()
     # utime.sleep_ms(500)
 
 client.disconnect()
