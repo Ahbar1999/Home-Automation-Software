@@ -21,9 +21,14 @@ app.config['MQTT_USERNAME'] = 'ahbar'
 app.config['MQTT_PASSWORD'] = '1234'
 app.config['MQTT_KEEPALIVE'] = 5  # set the time interval for sending a ping to the broker to 5 seconds
 mqtt = Mqtt(app)
-TOPICS = { 'set': 'project/esp32/appliances', 'status': 'project/esp32/appliances/status' }
+TOPICS = { 'set': 'project/esp32/appliances', 'status': 'project/esp32/appliances/status', 'readings': 'project/arduino/readings', 'ping_arduino': 'project/arduino/get' }
 # mqtt.subscribe(TOPICS['status'])
 status = {}
+"""
+readings will contain data from arduino iot33 node which 
+consists of temperature, humidity, sensor label, timestamp etc
+"""
+readings = {}
 # database
 engine = create_engine('sqlite:///database.db.sqlite', echo=True, connect_args={'check_same_thread': False})
 base = declarative_base()
@@ -69,7 +74,7 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Sign In')
 
 '''
-    Create a form for adding new appliances!
+    Created a form for adding new appliances!
 '''
 class RegisterAppliance(FlaskForm):
     name = StringField('appliance name', validators=[DataRequired()])
@@ -115,9 +120,11 @@ def user_loader(user_id):
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
     print("Connected to the broker")
-    # we only need to sub to the 'status' topic
     # for topic in TOPICS:
+    # data from the esp32 
     client.subscribe(TOPICS['status'])
+    # data from the arduino 
+    client.subscribe(TOPICS['readings'])
 
 @mqtt.on_message()
 def handle_mqtt_message(client, userdata, message):
@@ -130,8 +137,11 @@ def handle_mqtt_message(client, userdata, message):
             status[key] = 'ON' if payload[key] == '1' else 'OFF'
         
         # print(status) 
-        return status
-
+        # return status
+    elif message.topic == TOPICS['readings']:
+        payload = json.loads(message.payload.decode())
+        # print('payload received', type(payload), payload)
+        readings = payload 
 
 # APP ROUTES 
 @app.route('/login', methods=['GET', 'POST'])
@@ -154,8 +164,9 @@ def login():
                 # commit the changes 
                 session.commit()
                 login_user(user, remember=True)
-                # ping esp32 to get the status of pins
+                # ping both esp32 and arduino to get the status of pins/appliances/readings etc
                 mqtt.publish(TOPICS['status'], payload=json.dumps({}))
+                mqtt.publish(TOPICS['ping_arduino']) 
                 # wait to get esp32's published data which is sent after esp32 processes above message 
                 # just compensating for the delay
                 time.sleep(0.5) 
@@ -210,8 +221,8 @@ def index():
     # do we need below two lines ?????? i dont think so
     if not current_user.is_authenticated:
         return redirect('/login') 
-     
-    return render_template('index.html', apps=session.query(Appliance).all(), data=status)
+
+    return render_template('index.html', apps=session.query(Appliance).all(), data=status, readings=readings)
 
 # changed the route to '/set/<appliance>/<int:act>'
 # so now we can use the same view function for different appliances
@@ -220,7 +231,10 @@ def index():
 def set_app(appliance, act):
     # publish a message on the set topic 
     # app = session.query(Appliance)
-    mqtt.publish(TOPICS['set'], payload=json.dumps({appliance: act}))
+    if appliance == 'arduino':
+        mqtt.publish(TOPICS['ping_arduino'])
+    else:
+        mqtt.publish(TOPICS['set'], payload=json.dumps({appliance: act}))
     # wait to get esp32's published data which is sent after esp32 processes above message 
     # just compensating for the delay
     time.sleep(0.5) 

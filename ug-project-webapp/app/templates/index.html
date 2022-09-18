@@ -24,6 +24,13 @@
     {% endwith %}    
     <a class='button is-danger is-medium is-rounded ml-5 mt-5' href='/logout'>Logout</a>
     <a class='button is-right is-primary is-medium is-rounded ml-5 mt-5' href='/register_app'>Register a new Appliance!</a>
+    <div class='box'>
+      {% for reading in readings %}
+        <ul>
+          <li>{{reading.name}} : {{reading.value}}</li>
+        </ul> 
+      {% endfor %}
+    </div>
     <div class="section is-large">
       <table class="table is-bordered mt-0 is-fullwidth is-hoverable is-large"> 
         <tbody>

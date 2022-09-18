@@ -1,0 +1,5 @@
+#define SECRET_SSID ""
+#define SECRET_PASS ""
+#define SECRET_BROKER_IP ""
+#define SECRET_BROKER_USERNAME ""
+#define SECRET_BROKER_PASSWORD ""
