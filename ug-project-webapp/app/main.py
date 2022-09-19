@@ -134,6 +134,7 @@ def handle_mqtt_message(client, userdata, message):
         # print('payload received', type(payload), payload)
         for key in payload:
             # print(key, payload[key])
+            global status 
             status[key] = 'ON' if payload[key] == '1' else 'OFF'
         
         # print(status) 
@@ -141,7 +142,9 @@ def handle_mqtt_message(client, userdata, message):
     elif message.topic == TOPICS['readings']:
         payload = json.loads(message.payload.decode())
         # print('payload received', type(payload), payload)
+        global readings 
         readings = payload 
+        # print(readings)
 
 # APP ROUTES 
 @app.route('/login', methods=['GET', 'POST'])
@@ -221,7 +224,7 @@ def index():
     # do we need below two lines ?????? i dont think so
     if not current_user.is_authenticated:
         return redirect('/login') 
-
+    print(readings)
     return render_template('index.html', apps=session.query(Appliance).all(), data=status, readings=readings)
 
 # changed the route to '/set/<appliance>/<int:act>'

@@ -7,32 +7,32 @@
 #include "WiFiNINA.h"
 #include <ArduinoMqttClient.h>
 
-#define DHTPIN __
+#define DHTPIN 2  //D2 pin
 #define DHTTYPE DHT22
 
 
 char ssid[] = SECRET_SSID;
-char pass[] = SECRET_PASS;
+char pass[] = SECRET_PASS; 
 
 
-WifiClient wifiClient;
+WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 
 const char broker[] = SECRET_BROKER_IP;
 int port = 1883;
 const char broker_username[] = SECRET_BROKER_USERNAME;
 const char broker_password[] = SECRET_BROKER_PASSWORD;
-const char pub_topic[] = "project/arduino/readings"
-const char sub_topic[] = "project/arduino/get"
+const char pub_topic[] = "project/arduino/readings";
+const char sub_topic[] = "project/arduino/get";
 
-// 2 second interval because the dht22 sensor is slow and takes time to return readings 
-const long interval = 2000;
+// 5 second interval because the dht22 sensor is slow and takes time to return readings and
+// we dont wanna send data so frequently either
+const long interval = 5000;
 unsigned long previousMillis = 0;
 int count = 0;
 // declaring dht sensor and json payload
-DHT dht(DHTPIN, DHTTYPE)
-// json payload to be sent 
-DynamicJsonDocument doc(1024);
+DHT dht(DHTPIN, DHTTYPE);
+
 
 /*
   Sub to the same topic and send the info whenever the ping is recieved
@@ -92,23 +92,29 @@ void loop() {
     // get temperature reading in celsius
     float temp = dht.readTemperature();
     
+    // json payload to be sent 
+    DynamicJsonDocument doc(1024);
+    
     doc["sensor"] = "DHT22";
-    doc["timstamp"] = "NA"; // need to get an rtl sensor or maybe can use an api to get the data 
-    doc["temp"] = temp
+    doc["timestamp"] = "NA"; // need to get an rtl sensor or maybe can use an api to get the data 
+    doc["temp"] = temp;
     doc["humidity"] = humidity;
-    SerializeJson(doc, Serial);
+    // serializeJson(doc, Serial);
     
     // print the information about the message and topic
     Serial.print("Sending message to the topic: ");
     Serial.println(pub_topic);
-    Serial.println(doc);
+    char payload[1028]; 
+    serializeJson(doc, payload);
+    Serial.println(payload);
     
     // now sending the message
     // The print interface can be used to set the message contents
     mqttClient.beginMessage(pub_topic);
     // mqttClient.print("Hello from Ahbar's arduino");
     // mqttClient.print(count);
-    mqttClient.print(doc)
+    
+    mqttClient.print(payload);
     mqttClient.endMessage();
     
     Serial.println();
