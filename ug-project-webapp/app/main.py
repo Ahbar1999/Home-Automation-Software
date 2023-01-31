@@ -11,7 +11,6 @@ from wtforms.validators import DataRequired
 from wtforms import StringField, PasswordField, SubmitField, IntegerField, validators
 
 
-
 app = Flask(__name__)
 key = os.urandom(24)
 app.config['SECRET_KEY'] = key
@@ -22,7 +21,12 @@ app.config['MQTT_USERNAME'] = 'ahbar'
 app.config['MQTT_PASSWORD'] = '1234'
 app.config['MQTT_KEEPALIVE'] = 5  # set the time interval for sending a ping to the broker to 5 seconds
 mqtt = Mqtt(app)
-TOPICS = { 'set': 'project/esp32/appliances', 'status': 'project/esp32/appliances/status', 'readings': 'project/arduino/readings', 'ping_arduino': 'project/arduino/get' }
+TOPICS = { 
+    'set': 'project/esp32/appliances', 
+    'status': 'project/esp32/appliances/status', 
+    'readings': 'project/arduino/readings', 
+    'ping_arduino': 'project/arduino/get' 
+    }
 # mqtt.subscribe(TOPICS['status'])
 status = {}
 """
@@ -183,14 +187,14 @@ def login():
 @app.route('/register_app', methods=['GET', 'POST'])
 @login_required
 def register_app():
-    form = RegisterAppliance()
-    
+
+    form = RegisterAppliance()    
     if form.validate_on_submit():
         new_app = session.query(Appliance).filter(Appliance.name == form.name.data).first()
         if new_app:
             flash('An appliance with the same name already exists!')
             return redirect('/register_app') 
-        new_app = Appliance(name=form.name.data) 
+        new_app = Appliance(name=form.name.data, power_rating=form.power_rating.data) 
         session.add(new_app)
         session.commit()
         flash(f"{form.name.data} was added!")
@@ -228,21 +232,17 @@ def register_user():
 '''
 # DYNAMIC QUERY/FILTERING
 # CURRENTLY IN DEVELOPMENT
-
 @app.route('/delete/<table_name>/<identifier>')
 @login_required
 def delete_from_db(table_name, identifier):
     field = 'username' if table_name == 'User' else 'name'
-    query = f"session.query(%s).filter(%s.%s == '%s').first()" % (table_name, table_name, field, identifier)
-    record = exec(query)
-    print("#"*20)
-    # print(query)
-    # this works
-    table = User if table_name == 'User' else Appliance
-    print(session.query(table).filter(getattr(table, 'username', None) or getattr(table, 'name') == 'aquib').first())
-    # this does not
+    record = None
+    query = "record = session.query(%s).filter(%s.%s == '%s').first()" % (table_name, table_name, field, identifier)
+    exec(query, globals(), locals())
+    # print("#"*20)
     # print(record)
-    print("#"*20)
+    # print(query)
+    # print("#"*20)
     session.delete(record)
     session.commit()
     flash(f"{identifier} was deleted!")
