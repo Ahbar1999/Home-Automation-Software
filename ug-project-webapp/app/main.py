@@ -8,7 +8,8 @@ from sqlalchemy.orm import sessionmaker
 from flask_wtf import FlaskForm
 from flask_login import login_user, current_user, login_required, LoginManager, logout_user
 from wtforms.validators import DataRequired
-from wtforms import StringField, PasswordField, SubmitField
+from wtforms import StringField, PasswordField, SubmitField, IntegerField, validators
+
 
 
 app = Flask(__name__)
@@ -64,6 +65,7 @@ class Appliance(base):
     
     id = Column(Integer, primary_key=True) 
     name = Column(String, unique=True, nullable=False) 
+    power_rating = Column(Integer, unique=False, nullable=False)
     # last_status = Column(String) 
 
 
@@ -78,8 +80,18 @@ class LoginForm(FlaskForm):
 '''
 class RegisterAppliance(FlaskForm):
     name = StringField('appliance name', validators=[DataRequired()])
+    power_rating = IntegerField('appliance power rating', validators=[DataRequired()])
     submit = SubmitField('Submit')
-
+    
+'''
+    A form to create new users
+'''
+class RegisterUser(FlaskForm):
+    username = StringField('Username', validators=[DataRequired()])
+    password = PasswordField('Password', validators=[DataRequired(), validators.EqualTo('password_confirm', 'Passwords must match')])
+    password_confirm = PasswordField('Confirm Password', validators=[DataRequired()])
+    submit = SubmitField('Submit')
+    
 
 base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
@@ -94,27 +106,16 @@ else:
 
 # pre populate db first time
 if not session.query(Appliance).filter(Appliance.name == 'led').all():
-    session.add(Appliance(name='led'))
+    session.add(Appliance(name='led', power_rating=5))
     session.commit()
 else:
     print("led is already added!")
-if not session.query(Appliance).filter(Appliance.name == 'App01').all():
-    session.add(Appliance(name='App01'))
-    session.commit()
-else:
-    print("App01 is already added!")
-if not session.query(Appliance).filter(Appliance.name == 'App02').all():
-    session.add(Appliance(name='App02'))
-    session.commit()
-else:
-    print("App02 is already added!")
 
 
 @login_manager.user_loader
 def user_loader(user_id):
     # return the corresponding User object to the user_id
     return session.query(User).filter(User.username == user_id).first()
-
 
 # MQTT methods
 @mqtt.on_connect()
@@ -197,7 +198,58 @@ def register_app():
     
     return render_template('register_app.html', form=form)
 
-@app.route('/delete/<app_name>')
+@app.route('/user_dashboard')
+@login_required
+def user_dashboard():
+    if not current_user.is_authenticated:
+        return redirect('/user_dashboard') 
+    
+    return render_template('user_dashboard.html', users=session.query(User).all())
+
+# register new users
+@app.route('/register_user', methods=['GET', 'POST'])
+@login_required
+def register_user():
+    form = RegisterUser()
+    
+    if form.validate_on_submit():
+        new_user = session.query(User).filter(User.username == form.username.data).first()
+        if new_user:
+            flash('A user with the same username already exists!')
+            return redirect('/register_app') 
+        new_user = User(username=form.username.data, password=form.password.data) 
+        session.add(new_user)
+        session.commit()
+        flash(f"{form.username.data} was added!")
+        return redirect('/') 
+    
+    return render_template('register_user.html', form=form)
+
+'''
+# DYNAMIC QUERY/FILTERING
+# CURRENTLY IN DEVELOPMENT
+
+@app.route('/delete/<table_name>/<identifier>')
+@login_required
+def delete_from_db(table_name, identifier):
+    field = 'username' if table_name == 'User' else 'name'
+    query = f"session.query(%s).filter(%s.%s == '%s').first()" % (table_name, table_name, field, identifier)
+    record = exec(query)
+    print("#"*20)
+    # print(query)
+    # this works
+    table = User if table_name == 'User' else Appliance
+    print(session.query(table).filter(getattr(table, 'username', None) or getattr(table, 'name') == 'aquib').first())
+    # this does not
+    # print(record)
+    print("#"*20)
+    session.delete(record)
+    session.commit()
+    flash(f"{identifier} was deleted!")
+    return redirect('/')
+'''
+
+@app.route('/delete_app/<app_name>')
 @login_required
 def delete_app(app_name):
     app = session.query(Appliance).filter(Appliance.name == app_name).first()
@@ -205,6 +257,16 @@ def delete_app(app_name):
     session.commit()
     flash(f"{app_name} was deleted!")
     return redirect('/')
+
+@app.route('/delete_user/<user_name>')
+@login_required
+def delete_user(user_name):
+    user = session.query(User).filter(User.username == user_name).first()
+    session.delete(user)
+    session.commit()
+    flash(f"{user_name} was deleted!")
+    return redirect('/')
+
 
 @app.route('/logout', methods=['GET'])
 @login_required
@@ -232,6 +294,9 @@ def index():
 @app.route('/set/<appliance>/<act>')
 @login_required
 def set_app(appliance, act):
+    '''
+        CHECK FOR POWER OVERLOAD HERE
+    '''
     # publish a message on the set topic 
     # app = session.query(Appliance)
     if appliance == 'arduino':

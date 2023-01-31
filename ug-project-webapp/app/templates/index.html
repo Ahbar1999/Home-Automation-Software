@@ -24,6 +24,7 @@
     {% endwith %}    
     <a class='button is-danger is-medium is-rounded ml-5 mt-5' href='/logout'>Logout</a>
     <a class='button is-right is-primary is-medium is-rounded ml-5 mt-5' href='/register_app'>Register a new Appliance!</a>
+    <a class='button is-warning is-primary is-medium is-rounded ml-5 mt-5' href='/user_dashboard'>User Dashboard</a>
     <div class='card mt-5 ml-5'>
       {% for reading in readings %}
         <ul>
@@ -34,14 +35,20 @@
     <div class="section">
       <table class="table is-bordered mt-0 is-fullwidth is-hoverable is-large"> 
         <tbody>
+          <tr>
+            <td class='has-text-weight-bold is-size-3 has-text-centered'>Appliance</td>
+            <td class='has-text-weight-bold is-size-3 has-text-centered'>Switch Status</td>
+            <td class='has-text-weight-bold is-size-3 has-text-centered'><div>Power Rating(Watt)<div></td>
+          </tr>
           {% for app in apps %}
           <!-- <p>{{app.name}}</p> -->
             <tr>
-              <td class='has-text-weight-bold is-family-monospace is-size-3'>{{app.name}}</td>
-              <td class='is-size-4'><div>Currently: {{ data.get(app.name) }}<div></td>
+              <td class='is-size-4 has-text-centered'>{{app.name}}</td>
+              <td class='is-size-4 has-text-centered'><div>{{ data.get(app.name, 'Not Available') }}<div></td>
+              <td class='is-size-4 has-text-centered'><div>{{ app.power_rating }}<div></td>
               <td><form action="/set/{{app.name}}/1"><button class='button is-success is-rounded is-size-4' type='submit'>ON</button></form></td>
               <td><form action="/set/{{app.name}}/0"><button class='button is-warning is-rounded is-size-4' type='submit'>OFF</button></form></td>
-              <td><form action="/delete/{{app.name}}"><button class='button is-danger is-rounded is-size-4' type='submit'>Delete</button></form></td> 
+              <td><form action="/delete_app/{{app.name}}"><button class='button is-danger is-rounded is-size-4' type='submit'>Delete</button></form></td> 
             </tr>
           {% endfor %}
           <!-- 

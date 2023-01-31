@@ -2,7 +2,7 @@
 
 <html>
   <head>
-    <title>App Registration</title>
+    <title>User Registration</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
   <body>
@@ -15,12 +15,16 @@
           </h1>
         {% endif %}
         {% endwith %}
-        <h1 class='title'>Register a new App!</h1>
+        <h1 class='title'>Register a new User!</h1>
         <form action="" method="post">
           {{ form.hidden_tag() }}
           <div class='field'>
-            <label>{{ form.name.label(class='label') }}</label>
-            <p>{{ form.name(class='input is-medium', size=32) }}</p>
+            <label>{{ form.username.label(class='label') }}</label>
+            <p>{{ form.username(class='input is-medium', size=32) }}</p>
+            <label>{{ form.password.label(class='label') }}</label>
+            <p>{{ form.password(class='input is-medium', size=32) }}</p>
+            <label>{{ form.password_confirm.label(class='label') }}</label>
+            <p>{{ form.password_confirm(class='input is-medium', size=32) }}</p>
           </div> 
           <p>{{ form.submit(class='button is-link mt-4') }}</p>
         </form>

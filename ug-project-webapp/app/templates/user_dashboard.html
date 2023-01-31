@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html>
+  <head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <h1 class='notification is-warning mt-5' role='alert'>
+        {{ messages[0] }}
+      </h1>
+    {% endif %}
+    {% endwith %}    
+    <a class='button is-warning is-primary is-medium is-rounded ml-5 mt-5' href='/register_user'>Register a new User!</a>
+    <a class='button is-warning is-primary is-medium is-rounded ml-5 mt-5' href='/'>Home</a>
+    <div class="section">
+      <table class="table is-bordered mt-0 is-fullwidth is-hoverable is-large"> 
+        <tbody>
+          <tr>
+            <td class='has-text-weight-bold has-text-centered is-size-3'>Username</td>
+            <td class='has-text-weight-bold has-text-centered is-size-3'>Password</td>
+          </tr>
+          {% for user in users %}
+            <tr>
+                <td class='is-size-4 has-text-centered'>{{user.username}}</td>
+                <td class='is-size-4 has-text-centered'><div>{{user.password}}<div></td>
+                <td><form action="/delete_user/{{user.username}}"><button class='button is-danger is-rounded is-size-4' type='submit'>Delete</button></form></td> 
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+  </body>
+</html>
