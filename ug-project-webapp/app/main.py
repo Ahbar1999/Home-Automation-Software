@@ -267,7 +267,6 @@ def delete_user(user_name):
     flash(f"{user_name} was deleted!")
     return redirect('/')
 
-
 @app.route('/logout', methods=['GET'])
 @login_required
 def logout():
