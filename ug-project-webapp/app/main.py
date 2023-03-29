@@ -1,5 +1,5 @@
 from flask import Flask, render_template, redirect, flash
-import os, sys, time
+import os, time
 from flask_mqtt import Mqtt
 import json
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
@@ -16,7 +16,7 @@ key = os.urandom(24)
 app.config['SECRET_KEY'] = key
 app.config['MQTT_CLIENT_ID'] = 'flask_webapp'
 app.config['MQTT_BROKER_URL'] = '139.59.61.26'  
-app.config['MQTT_BROKER_PORT'] = 1883  
+app.config['MQTT_BROKER_PORT'] = 8080  
 app.config['MQTT_USERNAME'] = 'ahbar'
 app.config['MQTT_PASSWORD'] = '1234'
 app.config['MQTT_KEEPALIVE'] = 5  # set the time interval for sending a ping to the broker to 5 seconds
@@ -25,7 +25,8 @@ TOPICS = {
     'set': 'project/esp32/appliances', 
     'status': 'project/esp32/appliances/status', 
     'readings': 'project/arduino/readings', 
-    'ping_arduino': 'project/arduino/get' 
+    'ping_arduino': 'project/arduino/get',
+    'set_wifi': 'project/wifi_details/set' 
     }
 # mqtt.subscribe(TOPICS['status'])
 status = {}
@@ -39,7 +40,6 @@ engine = create_engine('sqlite:///database.db.sqlite', echo=True, connect_args={
 base = declarative_base()
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
-
 
 # User table representation
 class User(base):
@@ -72,12 +72,35 @@ class Appliance(base):
     power_rating = Column(Integer, unique=False, nullable=False)
     # last_status = Column(String) 
 
+# Class representing a singleton object that will be used to track power usage throughout
+class PowerUsage(base):
+    __tablename__ = 'PowerUsage'
+    id = Column(Integer, primary_key=True)
+    power_usage = Column(Integer, default=0)
+    power_threshold = Column(Integer, default=1000001)
+
+# Class/Table for storing Wifi Settings to be sent to the microcontrollers for easy access
+class WifiDetails(base):
+    __tablename__ = 'WifiDetails'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ssid = Column(String, unique=True, nullable=False)
+    password = Column(String, unique=False, nullable=False)
+
+# Wifi form
+class WifiDetailsForm(FlaskForm):
+    ssid = StringField('wifi id', validators=[DataRequired()])
+    password = PasswordField('wifi password', validators=[DataRequired()]) 
+    submit = SubmitField('Submit')
 
 # Login Page form
 class LoginForm(FlaskForm):
     username = StringField('username', validators=[DataRequired()])
     password = StringField('password', validators=[DataRequired()])
     submit = SubmitField('Sign In')
+
+class PowerSettingsForm(FlaskForm):
+    power_threshold = IntegerField('Max Power', validators=[DataRequired()])
+    submit = SubmitField('Submit') 
 
 '''
     Created a form for adding new appliances!
@@ -94,8 +117,8 @@ class RegisterUser(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired(), validators.EqualTo('password_confirm', 'Passwords must match')])
     password_confirm = PasswordField('Confirm Password', validators=[DataRequired()])
-    submit = SubmitField('Submit')
-    
+    submit = SubmitField('Submit') 
+
 
 base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
@@ -115,6 +138,15 @@ if not session.query(Appliance).filter(Appliance.name == 'led').all():
 else:
     print("led is already added!")
 
+# create the power tracker object
+if not session.query(PowerUsage).filter(PowerUsage.id == 1).first():
+    session.add(PowerUsage(id=1))
+    session.commit()
+
+# create wifi details for the first time
+if not session.query(WifiDetails).all():
+    session.add(WifiDetails(ssid='None', password='None'))
+    session.commit()
 
 @login_manager.user_loader
 def user_loader(user_id):
@@ -136,20 +168,13 @@ def handle_mqtt_message(client, userdata, message):
     # update status data 
     if message.topic == TOPICS['status']:
         payload = json.loads(message.payload.decode())
-        # print('payload received', type(payload), payload)
         for key in payload:
-            # print(key, payload[key])
             global status 
             status[key] = 'ON' if payload[key] == '1' else 'OFF'
-        
-        # print(status) 
-        # return status
     elif message.topic == TOPICS['readings']:
         payload = json.loads(message.payload.decode())
-        # print('payload received', type(payload), payload)
         global readings 
         readings = payload 
-        # print(readings)
 
 # APP ROUTES 
 @app.route('/login', methods=['GET', 'POST'])
@@ -175,6 +200,9 @@ def login():
                 # ping both esp32 and arduino to get the status of pins/appliances/readings etc
                 mqtt.publish(TOPICS['status'], payload=json.dumps({}))
                 mqtt.publish(TOPICS['ping_arduino']) 
+                # set wifi details on all the microcontrollers
+                wifi_details = session.query(WifiDetails).first()
+                mqtt.publish(TOPICS['set_wifi'], payload=json.dumps({'ssid': wifi_details.ssid, 'password': wifi_details.password}))
                 # wait to get esp32's published data which is sent after esp32 processes above message 
                 # just compensating for the delay
                 time.sleep(0.5) 
@@ -187,7 +215,6 @@ def login():
 @app.route('/register_app', methods=['GET', 'POST'])
 @login_required
 def register_app():
-
     form = RegisterAppliance()    
     if form.validate_on_submit():
         new_app = session.query(Appliance).filter(Appliance.name == form.name.data).first()
@@ -226,8 +253,44 @@ def register_user():
         session.commit()
         flash(f"{form.username.data} was added!")
         return redirect('/') 
-    
     return render_template('register_user.html', form=form)
+
+@app.route('/change_power_settings', methods=['GET', 'POST'])
+@login_required
+def change_power_settings():
+    form = PowerSettingsForm()
+
+    if form.validate_on_submit(): 
+        old_settings = session.query(PowerUsage).filter(PowerUsage.id == 1).first()
+        # change power threshold field of the object
+        old_settings.power_threshold = form.power_threshold.data
+        # print(old_settings)
+        session.commit()
+        flash("Power settings updated")
+        return redirect('/')
+    
+    # on GET request 
+    old_settings = session.query(PowerUsage).filter(PowerUsage.id == 1).first()
+    return render_template('power_settings_form.html', form=form, old_data=old_settings.power_threshold)
+
+@app.route('/wifi_settings', methods=['GET', 'POST'])
+@login_required
+def wifi_settings():
+    form = WifiDetailsForm() 
+
+    if form.validate_on_submit():
+        old_details = session.query(WifiDetails).first()
+        old_details.ssid = form.ssid.data
+        old_details.password = form.password.data
+        session.commit()
+        # set updated wifi details on all the microcontrollers
+        wifi_details = session.query(WifiDetails).first()
+        mqtt.publish(TOPICS['set_wifi'], payload=json.dumps({'ssid': wifi_details.ssid, 'password': wifi_details.password}))        
+        flash("Wifi settings updated") 
+        return redirect('/')
+    old_details = session.query(WifiDetails).first()
+    # print(old_details)
+    return render_template('wifi_settings.html', form=form, old_details=old_details)
 
 '''
 # DYNAMIC QUERY/FILTERING
@@ -285,29 +348,37 @@ def index():
     # do we need below two lines ?????? i dont think so
     if not current_user.is_authenticated:
         return redirect('/login') 
-    print(readings)
+    # print(readings)
     return render_template('index.html', apps=session.query(Appliance).all(), data=status, readings=readings)
 
 # changed the route to '/set/<appliance>/<int:act>'
 # so now we can use the same view function for different appliances
-@app.route('/set/<appliance>/<act>')
+@app.route('/set/<appliance>/<int:act>')
 @login_required
 def set_app(appliance, act):
-    '''
-        CHECK FOR POWER OVERLOAD HERE
-    '''
+    
     # publish a message on the set topic 
     # app = session.query(Appliance)
     if appliance == 'arduino':
         mqtt.publish(TOPICS['ping_arduino'])
     else:
+        '''
+            CHECK FOR POWER OVERLOAD HERE
+        ''' 
+        app_power_rating = session.query(Appliance).filter(Appliance.name == 'appliance').first().power_rating
+        # if application was turned off then subtract the power rating otherwise add it
+        CURRENT_POWER_USAGE = session.query(PowerUsage).filter(PowerUsage.id == 1).first().power_usage
+        CURRENT_POWER_USAGE = CURRENT_POWER_USAGE + (-app_power_rating if act == 0 else app_power_rating)  
+        POWER_USAGE_THRESHOLD = session.query(PowerUsage).filter(PowerUsage.id == 1).first().power_threshold 
+        if CURRENT_POWER_USAGE > POWER_USAGE_THRESHOLD:
+            flash("POWER BUDGET EXCEEDED! PLEASE TURN OFF SOME APPLICATIONS")
+
         mqtt.publish(TOPICS['set'], payload=json.dumps({appliance: act}))
     # wait to get esp32's published data which is sent after esp32 processes above message 
     # just compensating for the delay
     time.sleep(0.5) 
     # show_modal = True
     return redirect('/')
-
 
 if __name__ == '__main__':
     app.run(debug=True)

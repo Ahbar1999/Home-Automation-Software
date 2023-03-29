@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Change Power Settings </title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <section class='hero mt-6'>
+      <div class='container'>
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <h1 class='notification is-warning mt-5' role='alert'>
+            {{ messages[0] }}
+          </h1>
+        {% endif %}
+        {% endwith %}
+        <h2>Old power threshold: {{ old_data }}</h2>
+        <h1 class='title'>Enter a new power threshold</h1>
+        <form action="" method="post">
+          {{ form.hidden_tag() }}
+          <div class='field'>
+            <label>{{ form.power_threshold.label(class='label') }}</label>
+            <p>{{ form.power_threshold(class='input is-medium', size=32) }}</p> 
+          <p>{{ form.submit(class='button is-link mt-4') }}</p>
+        </form>
+      </div>
+    </section>
+  </body>
+</html>

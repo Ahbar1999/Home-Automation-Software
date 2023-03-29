@@ -1,0 +1,46 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>Change Wifi Details</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <section class='hero mt-6'>
+      <div class='container'>
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <h1 class='notification is-warning mt-5' role='alert'>
+            {{ messages[0] }}
+          </h1>
+        {% endif %}
+        {% endwith %}
+        <table class="table is-bordered mt-0 is-fullwidth is-hoverable is-large"> 
+            <tbody>
+                <tr>
+                    <td class='has-text-weight-bold is-size-3 has-text-centered'>Wifi SSID</td>
+                    <td class='has-text-weight-bold is-size-3 has-text-centered'>Wifi Password</td>
+                </tr>
+                <tr> 
+                    <td class='has-text-weight-bold is-size-3 has-text-centered'>{{ old_details.ssid }}</td>
+                    <td class='has-text-weight-bold is-size-3 has-text-centered'>{{ old_details.password }}</td>
+                </tr>          
+            </tbody>
+        </table>
+        
+        <h3 class='title'>Change wifi details</h3>
+        <form action="" method="post">
+          {{ form.hidden_tag() }}
+          <div class='field'>
+            <label>{{ form.ssid.label(class='label') }}</label>
+            <p>{{ form.ssid(class='input is-medium', size=32) }}</p>
+            <label>{{ form.password.label(class='label') }}</label>
+            <p>{{ form.password(class='input is-medium', size=32) }}</p>
+          </div> 
+          <p>{{ form.submit(class='button is-link mt-4') }}</p>
+        </form>
+      </div>
+    </section>
+  </body>
+</html>
+
