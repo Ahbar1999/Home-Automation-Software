@@ -15,8 +15,8 @@ app = Flask(__name__)
 key = os.urandom(24)
 app.config['SECRET_KEY'] = key
 app.config['MQTT_CLIENT_ID'] = 'flask_webapp'
-app.config['MQTT_BROKER_URL'] = '139.59.61.26'  
-app.config['MQTT_BROKER_PORT'] = 8080  
+app.config['MQTT_BROKER_URL'] = '139.59.61.26'
+app.config['MQTT_BROKER_PORT'] = 1883 
 app.config['MQTT_USERNAME'] = 'ahbar'
 app.config['MQTT_PASSWORD'] = '1234'
 app.config['MQTT_KEEPALIVE'] = 5  # set the time interval for sending a ping to the broker to 5 seconds
@@ -63,7 +63,7 @@ class User(base):
         # always return False since none of the users are anonymous 
         return False
 
-# appliance table ORM
+# appliance table 
 class Appliance(base):
     __tablename__ = 'Appliances'
     
@@ -148,6 +148,14 @@ if not session.query(WifiDetails).all():
     session.add(WifiDetails(ssid='None', password='None'))
     session.commit()
 
+def broadcast_wifi_details():
+    # set wifi details on all the microcontrollers
+    wifi_details = session.query(WifiDetails).first()
+    mqtt.publish(TOPICS['set_wifi'], payload=json.dumps({'ssid': wifi_details.ssid, 'password': wifi_details.password}))
+
+def refresh_status():
+    mqtt.publish(TOPICS['status'], payload=json.dumps({}))
+
 @login_manager.user_loader
 def user_loader(user_id):
     # return the corresponding User object to the user_id
@@ -168,9 +176,12 @@ def handle_mqtt_message(client, userdata, message):
     # update status data 
     if message.topic == TOPICS['status']:
         payload = json.loads(message.payload.decode())
+        print("recieved from status topic")
+        print(payload)
         for key in payload:
             global status 
             status[key] = 'ON' if payload[key] == '1' else 'OFF'
+        # print(status)
     elif message.topic == TOPICS['readings']:
         payload = json.loads(message.payload.decode())
         global readings 
@@ -198,11 +209,9 @@ def login():
                 session.commit()
                 login_user(user, remember=True)
                 # ping both esp32 and arduino to get the status of pins/appliances/readings etc
+                print("publishing to status topic") 
                 mqtt.publish(TOPICS['status'], payload=json.dumps({}))
                 mqtt.publish(TOPICS['ping_arduino']) 
-                # set wifi details on all the microcontrollers
-                wifi_details = session.query(WifiDetails).first()
-                mqtt.publish(TOPICS['set_wifi'], payload=json.dumps({'ssid': wifi_details.ssid, 'password': wifi_details.password}))
                 # wait to get esp32's published data which is sent after esp32 processes above message 
                 # just compensating for the delay
                 time.sleep(0.5) 
@@ -266,6 +275,13 @@ def change_power_settings():
         old_settings.power_threshold = form.power_threshold.data
         # print(old_settings)
         session.commit()
+        CURRENT_POWER_USAGE = session.query(PowerUsage).filter(PowerUsage.id == 1).first().power_usage
+        # repeated actions 
+        POWER_USAGE_THRESHOLD = session.query(PowerUsage).filter(PowerUsage.id == 1).first().power_threshold 
+        # print(CURRENT_POWER_USAGE) 
+        if CURRENT_POWER_USAGE > POWER_USAGE_THRESHOLD:
+            flash("POWER BUDGET EXCEEDED! PLEASE TURN OFF SOME APPLICATIONS")
+            # publish to power exceeded topics so others can get notified 
         flash("Power settings updated")
         return redirect('/')
     
@@ -284,8 +300,9 @@ def wifi_settings():
         old_details.password = form.password.data
         session.commit()
         # set updated wifi details on all the microcontrollers
-        wifi_details = session.query(WifiDetails).first()
-        mqtt.publish(TOPICS['set_wifi'], payload=json.dumps({'ssid': wifi_details.ssid, 'password': wifi_details.password}))        
+        broadcast_wifi_details()
+        # wifi_details = session.query(WifiDetails).first()
+        # mqtt.publish(TOPICS['set_wifi'], payload=json.dumps({'ssid': wifi_details.ssid, 'password': wifi_details.password}))        
         flash("Wifi settings updated") 
         return redirect('/')
     old_details = session.query(WifiDetails).first()
@@ -349,6 +366,8 @@ def index():
     if not current_user.is_authenticated:
         return redirect('/login') 
     # print(readings)
+    refresh_status()
+    time.sleep(0.5)
     return render_template('index.html', apps=session.query(Appliance).all(), data=status, readings=readings)
 
 # changed the route to '/set/<appliance>/<int:act>'
@@ -365,14 +384,17 @@ def set_app(appliance, act):
         '''
             CHECK FOR POWER OVERLOAD HERE
         ''' 
-        app_power_rating = session.query(Appliance).filter(Appliance.name == 'appliance').first().power_rating
+        app_power_rating = session.query(Appliance).filter(Appliance.name == appliance).first().power_rating
         # if application was turned off then subtract the power rating otherwise add it
         CURRENT_POWER_USAGE = session.query(PowerUsage).filter(PowerUsage.id == 1).first().power_usage
-        CURRENT_POWER_USAGE = CURRENT_POWER_USAGE + (-app_power_rating if act == 0 else app_power_rating)  
+        # repeated actions 
+        if status[appliance] != act:
+            CURRENT_POWER_USAGE = CURRENT_POWER_USAGE + (-app_power_rating if act == 0 else app_power_rating)  
         POWER_USAGE_THRESHOLD = session.query(PowerUsage).filter(PowerUsage.id == 1).first().power_threshold 
+        # print(CURRENT_POWER_USAGE) 
         if CURRENT_POWER_USAGE > POWER_USAGE_THRESHOLD:
             flash("POWER BUDGET EXCEEDED! PLEASE TURN OFF SOME APPLICATIONS")
-
+            # publish to power exceeded topics so others can get notified  
         mqtt.publish(TOPICS['set'], payload=json.dumps({appliance: act}))
     # wait to get esp32's published data which is sent after esp32 processes above message 
     # just compensating for the delay

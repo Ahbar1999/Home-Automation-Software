@@ -1,0 +1,3 @@
+# IN POWER SAVER MODE
+    Whenever you update change power settings make sure to show the warning if the current usage exceeds the newly updated
+     

@@ -15,19 +15,18 @@
           </h1>
         {% endif %}
         {% endwith %}
-        <table class="table is-bordered mt-0 is-fullwidth is-hoverable is-large"> 
+        <table class="table is-bordered mt-0 is-hoverable is-narrow"> 
             <tbody>
                 <tr>
-                    <td class='has-text-weight-bold is-size-3 has-text-centered'>Wifi SSID</td>
-                    <td class='has-text-weight-bold is-size-3 has-text-centered'>Wifi Password</td>
+                    <td class='has-text-centered'>Wifi SSID</td>
+                    <td class='has-text-centered'>Wifi Password</td>
                 </tr>
                 <tr> 
-                    <td class='has-text-weight-bold is-size-3 has-text-centered'>{{ old_details.ssid }}</td>
-                    <td class='has-text-weight-bold is-size-3 has-text-centered'>{{ old_details.password }}</td>
+                    <td class='has-text-centered'>{{ old_details.ssid }}</td>
+                    <td class='has-text-centered'>{{ old_details.password }}</td>
                 </tr>          
             </tbody>
         </table>
-        
         <h3 class='title'>Change wifi details</h3>
         <form action="" method="post">
           {{ form.hidden_tag() }}
@@ -41,6 +40,9 @@
         </form>
       </div>
     </section>
+    <div class="columns is-centered">
+      <button class="button is-link mt-5" onclick="{{broadcast_wifi_details}}">Broadcast WiFi details</a> 
+    </div>
   </body>
 </html>
 

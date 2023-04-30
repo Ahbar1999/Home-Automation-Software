@@ -16,11 +16,11 @@
     </div>
     {% endif %}
     {% with messages = get_flashed_messages() %}
-    {% if messages %}
+    {% for message in messages %}
       <h1 class='notification is-warning mt-5' role='alert'>
-        {{ messages[0] }}
+        {{ message }}
       </h1>
-    {% endif %}
+    {% endfor %}
     {% endwith %}    
     <a class='button is-danger is-medium is-rounded ml-5 mt-5' href='/logout'>Logout</a>
     <a class='button is-right is-primary is-medium is-rounded ml-5 mt-5' href='/register_app'>Register a new Appliance!</a>
