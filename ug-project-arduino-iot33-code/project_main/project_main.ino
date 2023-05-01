@@ -8,6 +8,7 @@
 #include <ArduinoMqttClient.h>
 
 #include <Servo.h>
+#include "arduino_secrets.h"
 
 #define DHTPIN 2  //D2 pin
 #define DHTTYPE DHT22
@@ -103,10 +104,12 @@ void loop() {
       Serial.println("TOO HOT!! Open the windows!");
       windowPos = 90;
       windowController.write(windowPos);
-    } else if (temp <= 24 && windowPos > 0) {
+      delay(500);
+    } else if (temp < 30 && windowPos > 0) {
       Serial.println("TOO COLD!! Close the windows!");
       windowPos = 0;
       windowController.write(windowPos);
+      delay(500);
     }
        
     // json payload to be sent 
