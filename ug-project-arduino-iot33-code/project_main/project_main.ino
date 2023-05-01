@@ -1,5 +1,5 @@
-#include "arduino_secrets.h"
 #include <DHT.h>
+#include <MQ135.h>
 
 #include <ArduinoJson.h>
 #include <ArduinoJson.hpp>
@@ -7,8 +7,11 @@
 #include "WiFiNINA.h"
 #include <ArduinoMqttClient.h>
 
+#include <Servo.h>
+
 #define DHTPIN 2  //D2 pin
 #define DHTTYPE DHT22
+#define MQPIN A2
 
 
 char ssid[] = SECRET_SSID;
@@ -32,13 +35,15 @@ unsigned long previousMillis = 0;
 int count = 0;
 // declaring dht sensor and json payload
 DHT dht(DHTPIN, DHTTYPE);
-
-
+MQ135 mq135_sensor(MQPIN);
 /*
   Sub to the same topic and send the info whenever the ping is recieved
   Or use another topic to recieve the ping
 */
-// Json Payload to send: [temp, humidity, timestamp]
+// Json Payload to send: {dht22: [temp, humidity, timestamp], mq135: [ppm levels]}
+
+Servo windowController;
+int windowPos = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -74,6 +79,7 @@ void setup() {
 
   // DHT
   dht.begin();
+  windowController.attach(3);
 }
 
 void loop() {
@@ -91,14 +97,26 @@ void loop() {
     float humidity = dht.readHumidity();
     // get temperature reading in celsius
     float temp = dht.readTemperature();
+    float correctedPPM = mq135_sensor.getCorrectedPPM(temp, humidity);
     
+    if (temp >= 30 && windowPos < 90) {
+      Serial.println("TOO HOT!! Open the windows!");
+      windowPos = 90;
+      windowController.write(windowPos);
+    } else if (temp <= 24 && windowPos > 0) {
+      Serial.println("TOO COLD!! Close the windows!");
+      windowPos = 0;
+      windowController.write(windowPos);
+    }
+       
     // json payload to be sent 
     DynamicJsonDocument doc(1024);
     
-    doc["sensor"] = "DHT22";
+    doc["sensor"] = "DHT22 and MQ135";
     doc["timestamp"] = "NA"; // need to get an rtl sensor or maybe can use an api to get the data 
     doc["temp"] = temp;
     doc["humidity"] = humidity;
+    doc["PPM level"] = correctedPPM;
     // serializeJson(doc, Serial);
     
     // print the information about the message and topic
@@ -117,7 +135,10 @@ void loop() {
     mqttClient.print(payload);
     mqttClient.endMessage();
     
+    Serial.print("Current Window Pos:");
+    Serial.println(windowPos);
     Serial.println();
+    
     
     count++;
   }
