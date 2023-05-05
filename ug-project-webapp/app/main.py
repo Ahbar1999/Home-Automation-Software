@@ -29,7 +29,9 @@ TOPICS = {
     'set_wifi': 'project/wifi_details/set' 
     }
 # mqtt.subscribe(TOPICS['status'])
-status = {}
+status = {
+    "window_mode": False
+}
 """
 readings will contain data from arduino iot33 node which 
 consists of temperature, humidity, sensor label, timestamp etc
@@ -186,6 +188,8 @@ def handle_mqtt_message(client, userdata, message):
         payload = json.loads(message.payload.decode())
         global readings 
         readings = payload 
+    
+    return redirect("/")
 
 # APP ROUTES 
 @app.route('/login', methods=['GET', 'POST'])
@@ -368,7 +372,7 @@ def index():
     # print(readings)
     refresh_status()
     time.sleep(0.5)
-    return render_template('index.html', apps=session.query(Appliance).all(), data=status, readings=readings)
+    return render_template('index.html', apps=session.query(Appliance).all(), data=status, readings=readings, window_mode=status["window_mode"])
 
 # changed the route to '/set/<appliance>/<int:act>'
 # so now we can use the same view function for different appliances
@@ -378,8 +382,10 @@ def set_app(appliance, act):
     
     # publish a message on the set topic 
     # app = session.query(Appliance)
-    if appliance == 'arduino':
-        mqtt.publish(TOPICS['ping_arduino'])
+    if appliance == 'window':
+        if act == 2:
+            status["window_mode"] = not status["window_mode"]
+        mqtt.publish(TOPICS['ping_arduino'], payload=json.dumps({appliance: act}))
     else:
         '''
             CHECK FOR POWER OVERLOAD HERE
@@ -403,5 +409,5 @@ def set_app(appliance, act):
     return redirect('/')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="192.168.29.167", debug=True)
     

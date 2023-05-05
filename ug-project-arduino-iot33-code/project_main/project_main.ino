@@ -13,7 +13,7 @@
 #define DHTPIN 2  //D2 pin
 #define DHTTYPE DHT22
 #define MQPIN A2
-
+// #define RZERO ...
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS; 
@@ -44,7 +44,14 @@ MQ135 mq135_sensor(MQPIN);
 // Json Payload to send: {dht22: [temp, humidity, timestamp], mq135: [ppm levels]}
 
 Servo windowController;
-int windowPos = 0;
+
+// close angle
+int windowOpen = 160;
+// starting position, at 60 the shaft is parallel to the body
+int windowClose = 60;
+// intialliy keep window close
+int windowPos = windowClose;
+bool windowAuto = true;
 
 void setup() {
   Serial.begin(9600);
@@ -81,11 +88,46 @@ void setup() {
   // DHT
   dht.begin();
   windowController.attach(3);
+  windowController.write(windowPos);
+  delay(1000);
+  
+  // add subscription for window controll event
+  mqttClient.subscribe(sub_topic);
 }
 
 void loop() {
   // polling basically allows the client to keep the connection alive 
-  mqttClient.poll();
+  // mqttClient.poll();
+  
+  int messageSize = mqttClient.parseMessage();
+  
+  if (messageSize) {
+      // we received a message, print out the topic and contents
+      Serial.print("Received a message with topic '");
+      Serial.print(mqttClient.messageTopic());
+      Serial.print("', length ");
+      Serial.print(messageSize);
+      Serial.println(" bytes:");
+
+      StaticJsonDocument<256> doc;
+      deserializeJson(doc, mqttClient);
+      Serial.print(doc.as<String>());
+      
+      if (doc["window"] == 2) {
+        windowAuto = !windowAuto;
+      } else if (doc["window"] == 0) {
+        windowPos = windowClose;
+      } else {
+        windowPos = windowOpen;
+      }
+      windowController.write(windowPos);
+      
+      Serial.print("Window auto controller mode enabled: ");
+      Serial.println(windowAuto);
+
+      Serial.println();
+      Serial.println();
+  }
   
   unsigned long currentMillis = millis();
   
@@ -100,18 +142,18 @@ void loop() {
     float temp = dht.readTemperature();
     float correctedPPM = mq135_sensor.getCorrectedPPM(temp, humidity);
     
-    if (temp >= 30 && windowPos < 90) {
+    if (windowAuto && temp >= 30 && windowPos != windowOpen) {
       Serial.println("TOO HOT!! Open the windows!");
-      windowPos = 90;
+      windowPos = windowOpen;
       windowController.write(windowPos);
-      delay(500);
-    } else if (temp < 30 && windowPos > 0) {
+      delay(1000);
+    } else if (windowAuto && temp <= 25 && windowPos != windowClose) {
       Serial.println("TOO COLD!! Close the windows!");
-      windowPos = 0;
+      windowPos = windowClose;
       windowController.write(windowPos);
-      delay(500);
+      delay(1000);
     }
-       
+      
     // json payload to be sent 
     DynamicJsonDocument doc(1024);
     
@@ -136,14 +178,12 @@ void loop() {
     // mqttClient.print(count);
     
     mqttClient.print(payload);
-    mqttClient.endMessage();
+    mqttClient.endMessage(); 
     
     Serial.print("Current Window Pos:");
     Serial.println(windowPos);
     Serial.println();
-    
-    
+      
     count++;
   }
-  
 }

@@ -44,15 +44,25 @@
           </tr>
           {% for app in apps %}
           <!-- <p>{{app.name}}</p> -->
-            <tr>
-              <td class='is-size-4 has-text-centered'>{{app.name}}</td>
-              <td class='is-size-4 has-text-centered'><div>{{ data.get(app.name, 'Not Available') }}<div></td>
-              <td class='is-size-4 has-text-centered'><div>{{ app.power_rating }}<div></td>
-              <td><form action="/set/{{app.name}}/1"><button class='button is-success is-rounded is-size-4' type='submit'>ON</button></form></td>
-              <td><form action="/set/{{app.name}}/0"><button class='button is-warning is-rounded is-size-4' type='submit'>OFF</button></form></td>
-              <td><form action="/delete_app/{{app.name}}"><button class='button is-danger is-rounded is-size-4' type='submit'>Delete</button></form></td> 
-            </tr>
+          <tr>
+            <td class='is-size-4 has-text-centered'>{{app.name}}</td>
+            <td class='is-size-4 has-text-centered'><div>{{ data.get(app.name, 'Not Available') }}<div></td>
+            <td class='is-size-4 has-text-centered'><div>{{ app.power_rating }}<div></td>
+            <td><form action="/set/{{app.name}}/1"><button class='button is-success is-rounded is-size-4' type='submit'>ON</button></form></td>
+            <td><form action="/set/{{app.name}}/0"><button class='button is-warning is-rounded is-size-4' type='submit'>OFF</button></form></td>
+            <td><form action="/delete_app/{{app.name}}"><button class='button is-danger is-rounded is-size-4' type='submit'>Delete</button></form></td> 
+          </tr>
           {% endfor %}
+          <!-- this is just hardcoded for demonstration because i dont have enough time  -->
+
+          <tr>
+            <td class='is-size-4 has-text-centered'>window</td>
+            <td class='is-size-4 has-text-centered'><div>{{ data.get("fan", 'Not Available') }}<div></td>
+            <td class='is-size-4 has-text-centered'><div>{{ 100 }}<div></td>    
+            <td><form action="/set/window/1"><button class='button is-success is-rounded is-size-4' type='submit'>ON</button></form></td>
+            <td><form action="/set/window/0"><button class='button is-warning is-rounded is-size-4' type='submit'>OFF</button></form></td>  
+            <td><form action="/set/window/2"><button class='button is-warning is-rounded is-size-4' type='submit'>{{ "ENABLE" if window_mode else "DISABLE" }} AUTO</button></form></td>
+          </tr>
           <!-- 
           <tr>
             <td class='has-text-weight-bold is-family-monospace is-size-3'>Led</td>
