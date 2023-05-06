@@ -1,5 +1,5 @@
-#define SECRET_SSID "JioFiber-4G"
-#define SECRET_PASS "auG1999w1fIp@$$w0rD"
+#define SECRET_SSID "OnePlus 7 Pro"
+#define SECRET_PASS "12345678"
 #define SECRET_BROKER_IP "139.59.61.26"
 #define SECRET_BROKER_USERNAME "ahbar"
 #define SECRET_BROKER_PASSWORD "1234"

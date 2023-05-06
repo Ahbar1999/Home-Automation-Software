@@ -13,7 +13,6 @@
 #define DHTPIN 2  //D2 pin
 #define DHTTYPE DHT22
 #define MQPIN A2
-// #define RZERO ...
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS; 
@@ -31,7 +30,7 @@ const char sub_topic[] = "project/arduino/get";
 
 // 5 second interval because the dht22 sensor is slow and takes time to return readings and
 // we dont wanna send data so frequently either
-const long interval = 5000;
+const long interval = 2000;
 unsigned long previousMillis = 0;
 int count = 0;
 // declaring dht sensor and json payload
@@ -53,6 +52,25 @@ int windowClose = 60;
 int windowPos = windowClose;
 bool windowAuto = true;
 
+void reconnect() {
+  while (!mqttClient.connected()) {
+    if (!mqttClient.connect(broker, port)) {  
+      Serial.print("MQTT connection failed! Error code = ");
+      Serial.println(mqttClient.connectError());
+      Serial.println("Retrying...");
+    }
+  }
+  // If successfully connected, alert the user
+  Serial.println("You're conneted to MQTT broker!");
+  Serial.println();
+  // add subscription for window controll event
+  mqttClient.subscribe(sub_topic);
+  
+  Serial.print("Subbing to!");
+  Serial.println(sub_topic);
+  Serial.println();
+}
+
 void setup() {
   Serial.begin(9600);
   while (!Serial);
@@ -72,33 +90,23 @@ void setup() {
   mqttClient.setId("Ahbar_ArduinoIOT33");
   mqttClient.setUsernamePassword(broker_username, broker_password);
   
-  if (!mqttClient.connect(broker, port)) {
-    Serial.print("MQTT connection failed! Error code = ");
-    Serial.println(mqttClient.connectError());
-    
-    // go into infinite loop
-    // basically so the console does not close itself and user can do that
-    while (1);
-  }
-  
-  // If successfully connected, alert the user
-  Serial.println("You're conneted to MQTT broker!");
-  Serial.println();
+  reconnect();
 
   // DHT
   dht.begin();
   windowController.attach(3);
   windowController.write(windowPos);
   delay(1000);
-  
-  // add subscription for window controll event
-  mqttClient.subscribe(sub_topic);
 }
 
 void loop() {
   // polling basically allows the client to keep the connection alive 
   // mqttClient.poll();
-  
+  if (!mqttClient.connected()) {
+    Serial.println("MQTT Client disconnected.. reconnecting... please wait!");
+    reconnect();
+  }
+
   int messageSize = mqttClient.parseMessage();
   
   if (messageSize) {

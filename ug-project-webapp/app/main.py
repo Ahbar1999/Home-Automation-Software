@@ -188,7 +188,7 @@ def handle_mqtt_message(client, userdata, message):
         payload = json.loads(message.payload.decode())
         global readings 
         readings = payload 
-    
+    # print("arduino readings recieved", payload)
     return redirect("/")
 
 # APP ROUTES 
@@ -371,6 +371,7 @@ def index():
         return redirect('/login') 
     # print(readings)
     refresh_status()
+    print(readings)
     time.sleep(0.5)
     return render_template('index.html', apps=session.query(Appliance).all(), data=status, readings=readings, window_mode=status["window_mode"])
 
@@ -409,5 +410,5 @@ def set_app(appliance, act):
     return redirect('/')
 
 if __name__ == '__main__':
-    app.run(host="192.168.29.167", debug=True)
+    app.run(host="192.168.80.101", debug=True)
     
