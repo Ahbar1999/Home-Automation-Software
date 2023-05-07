@@ -179,11 +179,11 @@ def handle_mqtt_message(client, userdata, message):
     if message.topic == TOPICS['status']:
         payload = json.loads(message.payload.decode())
         print("recieved from status topic")
-        print(payload)
+        # print(payload)
         for key in payload:
             global status 
             status[key] = 'ON' if payload[key] == '1' else 'OFF'
-        # print(status)
+        print(status)
     elif message.topic == TOPICS['readings']:
         payload = json.loads(message.payload.decode())
         global readings 
@@ -391,6 +391,7 @@ def set_app(appliance, act):
         '''
             CHECK FOR POWER OVERLOAD HERE
         ''' 
+        refresh_status()
         app_power_rating = session.query(Appliance).filter(Appliance.name == appliance).first().power_rating
         # if application was turned off then subtract the power rating otherwise add it
         CURRENT_POWER_USAGE = session.query(PowerUsage).filter(PowerUsage.id == 1).first().power_usage
@@ -401,7 +402,6 @@ def set_app(appliance, act):
         # print(CURRENT_POWER_USAGE) 
         if CURRENT_POWER_USAGE > POWER_USAGE_THRESHOLD:
             flash("POWER BUDGET EXCEEDED! PLEASE TURN OFF SOME APPLICATIONS")
-            # publish to power exceeded topics so others can get notified  
         mqtt.publish(TOPICS['set'], payload=json.dumps({appliance: act}))
     # wait to get esp32's published data which is sent after esp32 processes above message 
     # just compensating for the delay
@@ -410,5 +410,6 @@ def set_app(appliance, act):
     return redirect('/')
 
 if __name__ == '__main__':
+    # app.run(host="192.168.80.101", debug=True)
     app.run(host="192.168.80.101", debug=True)
-    
+
